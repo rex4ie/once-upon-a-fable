@@ -32,14 +32,14 @@ class MainActivity : Activity() {
     private val main = Handler(Looper.getMainLooper())
     private var player: MediaPlayer? = null
     private var speed = 1f
-    private val dataDir by lazy { File(filesDir, "data").apply { mkdirs() } }
+    private val storeDir by lazy { File(filesDir, "data").apply { mkdirs() } }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
-            .addPathHandler("/data/", WebViewAssetLoader.InternalStoragePathHandler(this, dataDir))
+            .addPathHandler("/data/", WebViewAssetLoader.InternalStoragePathHandler(this, storeDir))
             .build()
         web = WebView(this)
         web.setBackgroundColor(Color.WHITE)
@@ -70,8 +70,8 @@ class MainActivity : Activity() {
     private fun js(code: String) = main.post { web.evaluateJavascript(code, null) }
     private fun q(s: String) = JSONObject.quote(s)
     private fun file(rel: String): File {
-        val f = File(dataDir, rel).canonicalFile
-        require(f.path.startsWith(dataDir.canonicalPath)) { "bad path" }
+        val f = File(storeDir, rel).canonicalFile
+        require(f.path.startsWith(storeDir.canonicalPath)) { "bad path" }
         return f
     }
 
@@ -123,7 +123,7 @@ class MainActivity : Activity() {
         @JavascriptInterface fun readText(rel: String): String = file(rel).let { if (it.exists()) it.readText() else "" }
         @JavascriptInterface fun writeText(rel: String, text: String) { file(rel).apply { parentFile?.mkdirs(); writeText(text) } }
         @JavascriptInterface fun remove(rel: String) { file(rel).deleteRecursively() }
-        @JavascriptInterface fun cacheSize(): Long = dataDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+        @JavascriptInterface fun cacheSize(): Long = storeDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
 
         @JavascriptInterface fun play(rel: String, fromMs: Int) { main.post {
             player?.release()
