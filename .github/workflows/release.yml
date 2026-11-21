@@ -16,7 +16,7 @@ jobs:
       - name: Bundle story text into the app
         run: |
           mkdir -p android/app/src/main/assets/www/content/lessons
-          cp content/index.json android/app/src/main/assets/www/content/
+          cp content/index.json content/licences.json android/app/src/main/assets/www/content/
           cp content/lessons/*.json android/app/src/main/assets/www/content/lessons/
       - name: Build signed APK
         env:
