@@ -266,7 +266,7 @@ function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = fal
 function openListenSheet(entry) {
   const opt = (acc, name, sub) => {
     const a = entry.audio && entry.audio[acc];
-    const saved = a && Native.exists(`audio/${entry.id}-${acc}-${a.post}.ogg`);
+    const saved = a && !window.IS_WEB && Native.exists(`audio/${entry.id}-${acc}-${a.post}.ogg`);
     return `<button class="choice" data-acc="${acc}" ${a ? '' : 'disabled style="opacity:.4"'}>${I.headphones}<div class="tx">${name}<small>${sub}${saved ? ' · Saved on this phone' : ''}</small></div>${S.accent === acc ? I.check : ''}</button>`;
   };
   const sh = openSheet(`<h3>Listen to the story</h3><p class="sub">Choose a voice. The words light up as the narrator reads.</p>
@@ -415,6 +415,7 @@ function viewSettings(app) {
 /* ---------- About + updates ---------- */
 let UPDATE = null;
 async function checkUpdate() {
+  if (window.IS_WEB) return null;
   const r = JSON.parse(await get(RELEASES));
   const v = String(r.tag_name || '').replace(/^v/i, ''), apk = (r.assets || []).find(a => /\.apk$/i.test(a.name));
   UPDATE = v && apk && cmpVer(v, Native.version()) > 0 ? { v, url: apk.browser_download_url, notes: (r.body || '').trim() } : null;
