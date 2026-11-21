@@ -43,7 +43,7 @@ async function remoteJSON(path) {
 async function bundledJSON(path) { const r = await fetch('content/' + path); if (!r.ok) throw new Error('missing'); return r.json(); }
 
 /* ---------- Settings ---------- */
-const DEF = { theme: 'light', font: 'literata', size: 19, lh: 1.7, margin: 'normal', photos: true, vocab: true, follow: true, livefa: false, accent: 'us', tapfa: false, fullfa: false, newPerDay: 10 };
+const DEF = { theme: 'light', font: 'literata', size: 19, lh: 1.7, margin: 'normal', photos: true, vocab: true, follow: true, livefa: false, accent: 'us', hlword: false, fullfa: false, newPerDay: 10 };
 const FONTS = { literata: ['Literata', 'Literata, Georgia, serif'], atkinson: ['Atkinson', 'Atkinson, sans-serif'], serif: ['Serif', 'Georgia, "Noto Serif", serif'], sans: ['Sans', 'system-ui, Roboto, sans-serif'] };
 const THEMES = { light: ['White', '#FFFFFF', '#1C1B19', false], paper: ['Reading', '#F6F0E4', '#2E2A24', false], dark: ['Dark', '#1E1F21', '#E6E3DE', true], black: ['Black', '#000000', '#D9D6D0', true] };
 const MARGINS = { narrow: 14, normal: 22, wide: 34 };
@@ -60,6 +60,7 @@ function applySettings() {
   document.body.classList.toggle('no-photos', !S.photos);
   document.body.classList.toggle('no-vocab', !S.vocab);
   document.body.classList.toggle('full-fa', !!S.fullfa);
+  document.body.classList.toggle('hl-word', !!S.hlword);
   Native.setBars(th[1], th[3]);
 }
 
@@ -222,7 +223,7 @@ function viewLesson(app, id) {
       }).join('')).join('');
     const hasFa = les.pages.some(p => p.fa);
     $('#body').innerHTML = `<h1>${tt}</h1>
-      ${hasFa ? `<div class="pills"><button class="pill ${S.tapfa ? 'on' : ''}" id="t-tap">${I.translate}Tap to translate</button><button class="pill ${S.fullfa ? 'on' : ''}" id="t-full">Show translation</button></div>` : ''}
+      ${hasFa ? `<div class="pills"><button class="pill ${S.fullfa ? 'on' : ''}" id="t-full">${I.translate}Show translation</button></div>` : ''}
       <div class="story">${pages}</div>
       <div class="moral"><small>Moral</small><p>${esc(les.moral)}</p></div>
       <div class="vocab-list"><h2>New words</h2>${les.vocab.map((v, i) => `<button class="vrow" data-vi="${i}"><b>${esc(v.w)}</b><span class="fa">${esc(v.fa)}</span></button>`).join('')}</div>
@@ -231,13 +232,11 @@ function viewLesson(app, id) {
     LESSON.words = [...app.querySelectorAll('.story .w')];
     fillImages(app);
     if (hasFa) {
-      $('#t-tap').onclick = () => { S.tapfa = !S.tapfa; saveSettings(); $('#t-tap').classList.toggle('on', S.tapfa); if (!S.tapfa) hideTip(); toast(S.tapfa ? 'Tap a sentence to see it in Persian' : 'Tap to translate is off'); };
       $('#t-full').onclick = () => { S.fullfa = !S.fullfa; saveSettings(); $('#t-full').classList.toggle('on', S.fullfa); };
     }
     if ($('#b-ex')) $('#b-ex').onclick = () => App.go('exercises', id);
     $('.story').onclick = e => {
       const w = e.target.closest('.w');
-      if (S.tapfa) { const s = e.target.closest('.s'); if (s) return showTip(s); }
       if (!w) return;
       if (w.dataset.v) return showWord(les.vocab, w.dataset.v);
       if (Player.active()) Player.seekToWord(+w.dataset.k);
@@ -309,8 +308,8 @@ const Player = {
       <div class="lbl">${acc === 'us' ? 'American' : 'British'}</div><button class="spd" id="pl-sp">${st.speed}×</button>${btn('pl-x', I.close, 'Close')}</div>
       <div class="prog" id="pl-pr"><i></i><b></b><u></u></div><div class="times"><span id="pl-t">0:00</span><span id="pl-d">0:00</span></div>
       <div class="pl-tg"><button class="pill ${S.follow ? 'on' : ''}" id="pl-fo">Scroll with narration</button>${LESSON && LESSON.les.pages.some(p => p.fa) ? `<button class="pill ${S.livefa ? 'on' : ''}" id="pl-fa">${I.translate}Translate with narration</button>` : ''}</div>`);
-    $('#pl-fo').onclick = () => { S.follow = !S.follow; saveSettings(); $('#pl-fo').classList.toggle('on', S.follow); this.lastTouch = 0; this.curS = null; this.tick(true); };
-    if ($('#pl-fa')) $('#pl-fa').onclick = () => { S.livefa = !S.livefa; saveSettings(); $('#pl-fa').classList.toggle('on', S.livefa); this.curS = null; this.tick(true); };
+    $('#pl-fo').onclick = () => { S.follow = !S.follow; saveSettings(); $('#pl-fo').classList.toggle('on', S.follow); this.lastTouch = 0; this.tick(true); };
+    if ($('#pl-fa')) $('#pl-fa').onclick = () => { S.livefa = !S.livefa; saveSettings(); $('#pl-fa').classList.toggle('on', S.livefa); if (this.curS) this.showLive(this.curS); };
     $('#pl-pp').onclick = () => { if (Native.playing()) { Native.pause(); } else { Native.resume(); } this.tick(true); };
     $('#pl-rw').onclick = () => Native.seek(Math.max(0, Native.position() - 5000));
     $('#pl-ff').onclick = () => Native.seek(Math.min(Native.duration(), Native.position() + 5000));
@@ -352,7 +351,7 @@ const Player = {
       if (el) el.classList.add('on');
     }
     const sent = el && el.closest('.s');
-    if (sent && sent !== this.curS) { this.curS = sent; this.showLive(sent); }
+    if (sent !== this.curS) { if (this.curS) this.curS.classList.remove('on'); this.curS = sent; if (sent) { sent.classList.add('on'); this.showLive(sent); } }
     if (el && S.follow && Date.now() - this.lastTouch > 3500) {
       const r = (sent || el).getBoundingClientRect(), w = el.getBoundingClientRect(), h = window.innerHeight, pb = ($('#player') || {}).offsetHeight || 0;
       // keep the sentence being read a little above the middle; move only when it drifts away
@@ -369,8 +368,8 @@ const Player = {
     box.classList.remove('in'); void box.offsetWidth; box.classList.add('in');
   },
   mount(html) { let p = $('#player'); if (!p) { p = document.createElement('div'); p.id = 'player'; p.className = 'player'; document.body.appendChild(p); } p.innerHTML = html; },
-  onEnded() { this.tick(true); this.curS = null; if (this.cur) { this.cur.classList.remove('on'); this.cur = null; } const pp = $('#pl-pp'); if (pp) { pp._p = false; pp.innerHTML = I.play; } },
-  stop() { clearInterval(this.timer); this.curS = null; const lf = $('#live-fa'); if (lf) lf.remove(); Native.stop(); if (this.cur) this.cur.classList.remove('on'); this.cur = null; this.st = null; this.seq = []; const p = $('#player'); if (p) p.remove(); },
+  onEnded() { this.tick(true); if (this.curS) this.curS.classList.remove('on'); this.curS = null; if (this.cur) { this.cur.classList.remove('on'); this.cur = null; } const pp = $('#pl-pp'); if (pp) { pp._p = false; pp.innerHTML = I.play; } },
+  stop() { clearInterval(this.timer); if (this.curS) this.curS.classList.remove('on'); this.curS = null; const lf = $('#live-fa'); if (lf) lf.remove(); Native.stop(); if (this.cur) this.cur.classList.remove('on'); this.cur = null; this.st = null; this.seq = []; const p = $('#player'); if (p) p.remove(); },
 };
 let scrollAnim = null;
 function smoothTo(y) {
@@ -395,7 +394,7 @@ function controls(onChange) {
     <div class="grp"><label>Text size</label><div class="range"><input type="range" min="14" max="28" step="1" value="${S.size}" data-r="size"><span>${S.size}</span></div></div>
     <div class="grp"><label>Line spacing</label><div class="range"><input type="range" min="1.3" max="2.3" step="0.1" value="${S.lh}" data-r="lh"><span>${S.lh}</span></div></div>
     <div class="grp"><div class="gl">Margins</div>${seg('margin', { narrow: 'Narrow', normal: 'Normal', wide: 'Wide' })}</div>
-    <div class="grp">${tog('photos', 'Pictures', 'Show the pictures in the stories')}${tog('vocab', 'Underline new words', 'Tap an underlined word to see its meaning')}${tog('follow', 'Scroll with narration', 'Scroll the page along with the audio')}${tog('livefa', 'Translate with narration', 'Show each sentence in Persian as it is read')}</div>`;
+    <div class="grp">${tog('photos', 'Pictures', 'Show the pictures in the stories')}${tog('vocab', 'Underline new words', 'Tap an underlined word to see its meaning')}${tog('hlword', 'Highlight word by word', 'Off: the whole sentence is highlighted while it is read')}${tog('follow', 'Scroll with narration', 'Scroll the page along with the audio')}${tog('livefa', 'Translate with narration', 'Show each sentence in Persian as it is read')}</div>`;
   const wire = root => {
     root.querySelectorAll('[data-theme-v]').forEach(b => b.onclick = () => { S.theme = b.dataset.themeV; root.querySelectorAll('[data-theme-v]').forEach(x => x.classList.toggle('on', x === b)); saveSettings(); onChange && onChange(); });
     root.querySelectorAll('.seg').forEach(sg => sg.querySelectorAll('button').forEach(b => b.onclick = () => { S[sg.dataset.key] = b.dataset.v; sg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); saveSettings(); onChange && onChange(); }));

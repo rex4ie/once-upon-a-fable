@@ -64,7 +64,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .w { border-radius: 4px; transition: background-color .12s; }
 .w.v { text-decoration: underline; text-decoration-color: var(--mark); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
 .no-vocab .w.v { text-decoration: none; }
-.w.on { background: var(--hl); color: var(--hl-fg); box-shadow: 0 0 0 2px var(--hl); }
+.hl-word .w.on { background: var(--hl); color: var(--hl-fg); box-shadow: 0 0 0 2px var(--hl); }
 .moral { margin: 30px 0 0; padding: 18px 0 0; border-top: 1px solid var(--line); }
 .moral small { display: block; color: var(--muted); font-size: 12.5px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
 .moral p { font: italic 400 19px/1.5 Literata, Georgia, serif; margin: 0; }
@@ -226,3 +226,5 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .pl-tg .pill { height: 30px; padding: 0 12px; font-size: 12.5px; }
 .live-fa { display: block; margin: .35em 0 .55em; padding: 6px 12px; border-right: 2px solid var(--accent); background: var(--soft); border-radius: 6px; font-size: calc(var(--fs) * .86); line-height: 1.8; color: var(--fg); opacity: 0; transform: translateY(-3px); transition: opacity .25s, transform .25s; }
 .live-fa.in { opacity: 1; transform: none; }
+.s.on { background: color-mix(in srgb, var(--hl) 38%, transparent); border-radius: 4px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hl) 38%, transparent); transition: background .3s, box-shadow .3s; }
+.hl-word .s.on { background: none; box-shadow: none; }
