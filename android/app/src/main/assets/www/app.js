@@ -43,7 +43,7 @@ async function remoteJSON(path) {
 async function bundledJSON(path) { const r = await fetch('content/' + path); if (!r.ok) throw new Error('missing'); return r.json(); }
 
 /* ---------- Settings ---------- */
-const DEF = { theme: 'light', font: 'literata', size: 19, lh: 1.7, margin: 'normal', photos: true, vocab: true, follow: true, accent: 'us', tapfa: false, fullfa: false, newPerDay: 10 };
+const DEF = { theme: 'light', font: 'literata', size: 19, lh: 1.7, margin: 'normal', photos: true, vocab: true, follow: true, livefa: false, accent: 'us', tapfa: false, fullfa: false, newPerDay: 10 };
 const FONTS = { literata: ['Literata', 'Literata, Georgia, serif'], atkinson: ['Atkinson', 'Atkinson, sans-serif'], serif: ['Serif', 'Georgia, "Noto Serif", serif'], sans: ['Sans', 'system-ui, Roboto, sans-serif'] };
 const THEMES = { light: ['White', '#FFFFFF', '#1C1B19', false], paper: ['Reading', '#F6F0E4', '#2E2A24', false], dark: ['Dark', '#1E1F21', '#E6E3DE', true], black: ['Black', '#000000', '#D9D6D0', true] };
 const MARGINS = { narrow: 14, normal: 22, wide: 34 };
@@ -307,7 +307,10 @@ const Player = {
     st.ready = true;
     this.mount(`<div class="top">${btn('pl-rw', I.rewind, 'Back 5 seconds')}<button class="main" id="pl-pp" aria-label="Play or pause">${I.pause}</button>${btn('pl-ff', I.forward, 'Forward 5 seconds')}
       <div class="lbl">${acc === 'us' ? 'American' : 'British'}</div><button class="spd" id="pl-sp">${st.speed}×</button>${btn('pl-x', I.close, 'Close')}</div>
-      <div class="prog" id="pl-pr"><i></i><b></b><u></u></div><div class="times"><span id="pl-t">0:00</span><span id="pl-d">0:00</span></div>`);
+      <div class="prog" id="pl-pr"><i></i><b></b><u></u></div><div class="times"><span id="pl-t">0:00</span><span id="pl-d">0:00</span></div>
+      <div class="pl-tg"><button class="pill ${S.follow ? 'on' : ''}" id="pl-fo">Scroll with narration</button>${LESSON && LESSON.les.pages.some(p => p.fa) ? `<button class="pill ${S.livefa ? 'on' : ''}" id="pl-fa">${I.translate}Translate with narration</button>` : ''}</div>`);
+    $('#pl-fo').onclick = () => { S.follow = !S.follow; saveSettings(); $('#pl-fo').classList.toggle('on', S.follow); this.lastTouch = 0; this.curS = null; this.tick(true); };
+    if ($('#pl-fa')) $('#pl-fa').onclick = () => { S.livefa = !S.livefa; saveSettings(); $('#pl-fa').classList.toggle('on', S.livefa); this.curS = null; this.tick(true); };
     $('#pl-pp').onclick = () => { if (Native.playing()) { Native.pause(); } else { Native.resume(); } this.tick(true); };
     $('#pl-rw').onclick = () => Native.seek(Math.max(0, Native.position() - 5000));
     $('#pl-ff').onclick = () => Native.seek(Math.min(Native.duration(), Native.position() + 5000));
@@ -346,19 +349,40 @@ const Player = {
     if (el !== this.cur) {
       if (this.cur) this.cur.classList.remove('on');
       this.cur = el;
-      if (el) {
-        el.classList.add('on');
-        if (S.follow && Date.now() - this.lastTouch > 3500) {
-          const r = el.getBoundingClientRect(), h = window.innerHeight;
-          if (r.top < 90 || r.bottom > h - 190) window.scrollTo({ top: window.scrollY + r.top - h * 0.35, behavior: 'smooth' });
-        }
-      }
+      if (el) el.classList.add('on');
+    }
+    const sent = el && el.closest('.s');
+    if (sent && sent !== this.curS) { this.curS = sent; this.showLive(sent); }
+    if (el && S.follow && Date.now() - this.lastTouch > 3500) {
+      const r = (sent || el).getBoundingClientRect(), w = el.getBoundingClientRect(), h = window.innerHeight, pb = ($('#player') || {}).offsetHeight || 0;
+      // keep the sentence being read a little above the middle; move only when it drifts away
+      const anchor = r.height > h * 0.45 ? w : r, target = window.scrollY + anchor.top - h * 0.3;
+      if (w.top < 80 || w.bottom > h - pb - 60 || Math.abs(anchor.top - h * 0.3) > h * 0.22) smoothTo(target);
     }
   },
+  showLive(sent) {
+    let box = $('#live-fa');
+    if (!S.livefa || !sent.dataset.fa) { if (box) box.remove(); return; }
+    if (!box) { box = document.createElement('span'); box.id = 'live-fa'; box.className = 'fa live-fa'; }
+    box.textContent = sent.dataset.fa;
+    sent.after(box);
+    box.classList.remove('in'); void box.offsetWidth; box.classList.add('in');
+  },
   mount(html) { let p = $('#player'); if (!p) { p = document.createElement('div'); p.id = 'player'; p.className = 'player'; document.body.appendChild(p); } p.innerHTML = html; },
-  onEnded() { this.tick(true); if (this.cur) { this.cur.classList.remove('on'); this.cur = null; } const pp = $('#pl-pp'); if (pp) { pp._p = false; pp.innerHTML = I.play; } },
-  stop() { clearInterval(this.timer); Native.stop(); if (this.cur) this.cur.classList.remove('on'); this.cur = null; this.st = null; this.seq = []; const p = $('#player'); if (p) p.remove(); },
+  onEnded() { this.tick(true); this.curS = null; if (this.cur) { this.cur.classList.remove('on'); this.cur = null; } const pp = $('#pl-pp'); if (pp) { pp._p = false; pp.innerHTML = I.play; } },
+  stop() { clearInterval(this.timer); this.curS = null; const lf = $('#live-fa'); if (lf) lf.remove(); Native.stop(); if (this.cur) this.cur.classList.remove('on'); this.cur = null; this.st = null; this.seq = []; const p = $('#player'); if (p) p.remove(); },
 };
+let scrollAnim = null;
+function smoothTo(y) {
+  y = Math.max(0, Math.min(y, document.documentElement.scrollHeight - window.innerHeight));
+  if (scrollAnim && Math.abs(scrollAnim.to - y) < 4) return;
+  const from = window.scrollY, d = y - from; if (Math.abs(d) < 2) return;
+  const dur = Math.min(900, 350 + Math.abs(d) * 0.6), t0 = performance.now(), me = scrollAnim = { to: y };
+  const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const step = now => { if (scrollAnim !== me) return; const t = Math.min(1, (now - t0) / dur); window.scrollTo(0, from + d * ease(t)); if (t < 1) requestAnimationFrame(step); else scrollAnim = null; };
+  requestAnimationFrame(step);
+}
+['touchstart', 'wheel'].forEach(ev => window.addEventListener(ev, () => { scrollAnim = null; }, { passive: true }));
 ['touchstart', 'wheel'].forEach(ev => window.addEventListener(ev, () => Player.lastTouch = Date.now(), { passive: true }));
 
 /* ---------- Settings ---------- */
@@ -371,7 +395,7 @@ function controls(onChange) {
     <div class="grp"><label>Text size</label><div class="range"><input type="range" min="14" max="28" step="1" value="${S.size}" data-r="size"><span>${S.size}</span></div></div>
     <div class="grp"><label>Line spacing</label><div class="range"><input type="range" min="1.3" max="2.3" step="0.1" value="${S.lh}" data-r="lh"><span>${S.lh}</span></div></div>
     <div class="grp"><div class="gl">Margins</div>${seg('margin', { narrow: 'Narrow', normal: 'Normal', wide: 'Wide' })}</div>
-    <div class="grp">${tog('photos', 'Pictures', 'Show the pictures in the stories')}${tog('vocab', 'Underline new words', 'Tap an underlined word to see its meaning')}${tog('follow', 'Follow the narrator', 'Scroll the page along with the audio')}</div>`;
+    <div class="grp">${tog('photos', 'Pictures', 'Show the pictures in the stories')}${tog('vocab', 'Underline new words', 'Tap an underlined word to see its meaning')}${tog('follow', 'Scroll with narration', 'Scroll the page along with the audio')}${tog('livefa', 'Translate with narration', 'Show each sentence in Persian as it is read')}</div>`;
   const wire = root => {
     root.querySelectorAll('[data-theme-v]').forEach(b => b.onclick = () => { S.theme = b.dataset.themeV; root.querySelectorAll('[data-theme-v]').forEach(x => x.classList.toggle('on', x === b)); saveSettings(); onChange && onChange(); });
     root.querySelectorAll('.seg').forEach(sg => sg.querySelectorAll('button').forEach(b => b.onclick = () => { S[sg.dataset.key] = b.dataset.v; sg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); saveSettings(); onChange && onChange(); }));

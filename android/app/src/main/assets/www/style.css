@@ -221,3 +221,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .done-card { text-align: center; padding: 40px 10px; color: var(--muted); }
 .done-card .ic { width: 40px; height: 40px; margin: 0 auto 10px; color: var(--accent); }
 .done-card h2 { font: 600 22px Literata, Georgia, serif; color: var(--fg); margin: 0 0 6px; }
+
+.pl-tg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.pl-tg .pill { height: 30px; padding: 0 12px; font-size: 12.5px; }
+.live-fa { display: block; margin: .35em 0 .55em; padding: 6px 12px; border-right: 2px solid var(--accent); background: var(--soft); border-radius: 6px; font-size: calc(var(--fs) * .86); line-height: 1.8; color: var(--fg); opacity: 0; transform: translateY(-3px); transition: opacity .25s, transform .25s; }
+.live-fa.in { opacity: 1; transform: none; }
